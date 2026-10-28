@@ -1,0 +1,11 @@
+.o_auth_oauth_providers {
+    .fa-google::before {
+        content: "";
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        background: center / contain no-repeat
+            url("/tijari_auth_oauth/static/src/img/google_logo.svg");
+    }
+}

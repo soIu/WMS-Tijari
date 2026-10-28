@@ -10,7 +10,9 @@
             <xpath expr="//field[@name='picking_type_code']" position="after">
                 <field name="picking_type_name" invisible="1"/>
                 <field name="show_picker_page" invisible="1"/>
+                <field name="show_packer_page" invisible="1"/>
                 <field name="show_putaway_page" invisible="1"/>
+                <field name="show_delivery_page" invisible="1"/>
             </xpath>
 
             <xpath expr="//div[@name='button_box']" position="inside">
@@ -42,6 +44,38 @@
                 <attribute name="string">Transaksi</attribute>
             </xpath>
 
+            <xpath expr="//page[@name='page_transfers']" position="after">
+                <page string="Additional Info" name="page_batch_additional_info">
+                    <group>
+                        <group name="batch_responsible_info" string="Responsible Information">
+                            <field name="pick_responsible_ids"
+                                widget="many2many_avatar_user"
+                                readonly="state in ('cancel', 'done')"/>
+                            <field name="pack_responsible_ids"
+                                widget="many2many_avatar_user"
+                                readonly="state in ('cancel', 'done')"
+                                invisible="picking_type_name not in ('Pick', 'Pick Internal', 'Pack', 'Delivery Orders')"/>
+                            <field name="do_responsible_ids"
+                                widget="many2many_avatar_user"
+                                readonly="state in ('cancel', 'done')"
+                                invisible="picking_type_name not in ('Pick', 'Pick Internal', 'Pack', 'Delivery Orders')"/>
+                            <field name="putaway_responsible_ids"
+                                widget="many2many_avatar_user"
+                                readonly="state in ('cancel', 'done')"
+                                invisible="picking_type_name not in ['Receipts', 'Receipt Internal', 'Storage', 'Store Finished Product']"/>
+                            <field name="batch_responsible_user_ids"
+                                widget="many2many_avatar_user"
+                                readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+
+            <!-- The same batch form is used for waves; keep this tab available there too. -->
+            <xpath expr="//page[@name='page_batch_additional_info']" position="attributes">
+                <attribute name="invisible">False</attribute>
+            </xpath>
+
             <xpath expr="//field[@name='picking_ids']" position="attributes">
                 <attribute name="string">Transaksi</attribute>
             </xpath>
@@ -51,11 +85,117 @@
             </xpath>
 
             <xpath expr="//page[@name='page_operations']" position="after">
+                <page string="Unpacked Item" name="page_unpacked_batch"
+                    invisible="picking_type_name != 'Delivery Orders' or not show_delivery_page">
+                    <group>
+                        <field name="allowed_unpacked_product_ids" invisible="1"/>
+                        <field name="allowed_unpacked_lot_ids" invisible="1"/>
+                        <field name="unpacked_lot_code" invisible="1"/>
+                        <field name="unpacked_scan_code" widget="adt_handheld_scan_code"
+                            placeholder="Scan handheld atau ketik kode" help="Bisa barcode, SKU, atau lot."/>
+                        <field name="unpacked_product_id" domain="[('id', 'in', allowed_unpacked_product_ids)]"
+                            options="{'no_create': True, 'no_open': True}"/>
+                        <field name="unpacked_lot_id" domain="[('id', 'in', allowed_unpacked_lot_ids)]"
+                            options="{'no_create': True, 'no_open': True}"/>
+                    </group>
+                    <field name="filtered_unpacked_move_ids" mode="list,kanban" readonly="1"
+                        options="{'no_create': True, 'no_create_edit': True}">
+                        <list create="0" edit="0" delete="0" default_order="unpack_status_sequence asc, id asc">
+                            <field name="unpack_status_sequence" column_invisible="True"/>
+                            <field name="batch_adt_type" string="Tipe Transaksi"/>
+                            <field name="batch_origin" string="No. Dokumen"/>
+                            <field name="product_default_code" string="Product"/>
+                            <field name="description_picking" string="Description" optional="show"/>
+                            <field name="lot_ids" widget="many2many_tags" string="Lot/Serial Numbers" groups="stock.group_production_lot"/>
+                            <field name="product_uom_qty" string="Total Qty"/>
+                            <field name="remaining_package_qty" string="Qty Unpack" readonly="1"/>
+                            <field name="so_confirmation_quantity" string="Qty Dikirim"/>
+                            <field name="difference_quantity" string="Perbedaan Qty" readonly="1" decoration-danger="difference_quantity &gt; 0"/>
+                            <field name="product_uom" string="Unit" groups="uom.group_uom"/>
+                            <field name="status_check" string="Status" widget="badge"
+                                decoration-success="status_check == 'finished'" decoration-danger="status_check == 'unfinished'"/>
+                            <button name="action_open_unpack_detail" type="object" string="Unpack Details" class="btn-primary"/>
+                        </list>
+                        <kanban class="o_wms_operation_card" create="0" edit="0" delete="0" can_open="0"
+                            default_order="unpack_status_sequence asc, id">
+                            <field name="product_id"/><field name="batch_origin"/>
+                            <field name="unpack_status_sequence"/><field name="remaining_package_qty"/>
+                            <field name="so_confirmation_quantity"/><field name="difference_quantity"/>
+                            <field name="product_uom"/><field name="status_check"/>
+                            <templates><t t-name="card">
+                                <div class="o_wms_operation_card">
+                                    <div class="o_wms_operation_product d-flex justify-content-between align-items-center">
+                                        <field name="product_id" class="fs-3"/>
+                                        <field name="status_check" widget="badge"
+                                            decoration-success="status_check == 'finished'" decoration-danger="status_check == 'unfinished'"/>
+                                    </div>
+                                    <div><strong>No. Dokumen: </strong><field name="batch_origin"/></div>
+                                    <div><strong>Qty Unpack: </strong><field name="remaining_package_qty"/><field name="product_uom" class="ms-1"/></div>
+                                    <div><strong>Qty Dikirim: </strong><field name="so_confirmation_quantity"/><field name="product_uom" class="ms-1"/></div>
+                                    <div><strong>Perbedaan Qty: </strong><field name="difference_quantity"/><field name="product_uom" class="ms-1"/></div>
+                                    <div class="o_wms_operation_actions mt-2">
+                                        <button name="action_open_note_wizard" type="object" icon="fa-sticky-note" title="Note"/>
+                                        <button name="action_open_unpack_detail" type="object" string="Unpack Details" class="btn-primary"/>
+                                    </div>
+                                </div>
+                            </t></templates>
+                        </kanban>
+                    </field>
+                </page>
+                <page string="Packed Item" name="page_packed_batch"
+                    invisible="picking_type_name != 'Delivery Orders' or not show_delivery_page">
+                    <group>
+                        <field name="available_package_ids" invisible="1"/>
+                        <field name="scan_package_button" widget="adt_scan_package_button" nolabel="1"/>
+                        <field name="package_scan_code" widget="adt_handheld_scan_code"
+                            placeholder="Scan handheld atau ketik kode"/>
+                        <field name="scanned_package_id" domain="[('id', 'in', available_package_ids)]"
+                            options="{'no_create': True, 'no_open': True}"/>
+                        <field name="filtered_package_level_id" invisible="1"/>
+                    </group>
+                    <field name="filtered_package_level_ids" mode="list,kanban" readonly="1"
+                        options="{'no_create': True, 'no_create_edit': True}">
+                        <list create="0" edit="0" delete="0" default_order="status desc, id">
+                            <field name="is_fresh_package" column_invisible="True"/>
+                            <field name="batch_adt_type" string="Tipe Transaksi"/>
+                            <field name="batch_origin" string="No. Dokumen"/>
+                            <field name="package_id"/>
+                            <field name="location_id" groups="stock.group_stock_multi_locations"/>
+                            <field name="location_dest_id" groups="stock.group_stock_multi_locations"/>
+                            <field name="status" widget="badge" decoration-success="status == 'finished'" decoration-danger="status == 'unfinished'"/>
+                            <button name="action_show_package_details" type="object" string="Pack Details" class="btn-primary"/>
+                        </list>
+                        <kanban class="o_wms_operation_card" create="0" edit="0" delete="0" can_open="0"
+                            default_order="status desc, id">
+                            <field name="package_id"/>
+                            <field name="batch_adt_type"/>
+                            <field name="batch_origin"/>
+                            <field name="location_id"/>
+                            <field name="location_dest_id"/>
+                            <field name="status"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="o_wms_operation_card">
+                                        <div class="o_wms_operation_product d-flex justify-content-between align-items-start mb-1">
+                                            <field name="package_id" class="fs-3"/>
+                                            <field name="status" widget="badge"
+                                                decoration-success="status == 'finished'" decoration-danger="status == 'unfinished'"/>
+                                        </div>
+                                        <div><strong>Tipe Transaksi: </strong><field name="batch_adt_type"/></div>
+                                        <div><strong>No. Dokumen: </strong><field name="batch_origin"/></div>
+                                        <div groups="stock.group_stock_multi_locations"><strong>From: </strong><field name="location_id"/></div>
+                                        <div groups="stock.group_stock_multi_locations"><strong>To: </strong><field name="location_dest_id"/></div>
+                                        <div class="o_wms_operation_actions mt-2">
+                                            <button name="action_show_package_details" type="object" string="Pack Details" class="btn-primary"/>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                    </field>
+                </page>
                 <page string="Putaway" name="page_putaway" invisible="not show_putaway_page or picking_type_name not in ['Receipts', 'Receipt Internal', 'Storage', 'Store Finished Product']">
                     <group>
-                        <field name="scan_product_button"
-                            widget="adt_scan_putaway_product_button"
-                            nolabel="1"/>
                         <field name="putaway_scan_code"
                             widget="adt_handheld_scan_code"
                             placeholder="Scan handheld atau ketik kode"
@@ -70,9 +210,10 @@
                         <field name="allowed_putaway_lot_ids" invisible="1"/>
                         <field name="putaway_product_id" context="{'tijari_stock_picking_product_code_only': True}" domain="[('id', 'in', allowed_putaway_product_ids)]"/>
                         <field name="putaway_lot_id" domain="[('id', 'in', allowed_putaway_lot_ids)]"/>
+                        <field name="putaway_qty_finish" readonly="1"/>
                     </group>
 
-                    <field name="putaway_move_line_ids" domain="[('id', 'in', allowed_putaway_move_line_ids)]" groups="!tijari_wms_18.group_operator">
+                    <field name="putaway_move_line_ids" domain="[('id', 'in', allowed_putaway_move_line_ids)]" groups="!tijari_wms_18.group_operator" invisible="1">
                         <list editable="bottom" create="0" delete="0" link="0">
                             <field name="id" column_invisible="1"/>
                             <field name="product_id" readonly="1" context="{'tijari_stock_picking_product_code_only': True}"/>
@@ -112,7 +253,7 @@
                                 invisible="putaway_status == 'unfinished'"/>
                         </list>
                     </field>
-                    <field name="putaway_move_line_ids" domain="[('id', 'in', allowed_putaway_move_line_ids)]" groups="tijari_wms_18.group_operator">
+                    <field name="putaway_move_line_ids" domain="[('id', 'in', allowed_putaway_move_line_ids)]" groups="tijari_wms_18.group_operator" invisible="1">
                         <list editable="bottom" create="0" delete="0" link="0">
                             <field name="id" column_invisible="1"/>
                             <field name="putaway_status" column_invisible="1"/>
@@ -145,7 +286,341 @@
                                 invisible="putaway_status == 'unfinished'"/>
                         </list>
                     </field>
+
+                    <field name="putaway_move_ids" mode="kanban,list" readonly="1">
+                        <list create="0" edit="0" delete="0" default_order="putaway_sequence asc, id">
+                            <field name="batch_adt_type" string="Tipe Transaksi" readonly="1"/>
+                            <field name="batch_origin" string="No. Transaksi" readonly="1"/>
+                            <field name="product_id" string="Product" readonly="1" context="{'tijari_stock_picking_product_code_only': True}"/>
+                            <field name="putaway_sequence" column_invisible="True"/>
+                            <field name="description_picking" string="Description" optional="show"/>
+                            <field name="lot_ids" widget="many2many_tags" string="Lot/Serial Numbers" groups="stock.group_production_lot"/>
+                            <field name="quantity" string="Qty Diterima" readonly="1"/>
+                            <field name="confirmation_quantity" string="Qty Disimpan" readonly="1"/>
+                            <field name="putaway_difference_quantity" string="Perbedaan Qty" readonly="1" decoration-danger="putaway_difference_quantity &gt; 0"/>
+                            <field name="product_uom" string="Unit" readonly="1" groups="uom.group_uom"/>
+                            <field name="putaway_progress_status" string="Status"
+                                decoration-success="putaway_progress_status == 'finished'"
+                                decoration-danger="putaway_progress_status == 'unfinished'"
+                                widget="badge"/>
+                            <button name="action_open_move_putaway" type="object" string="Putaway Details" class="btn-primary"/>
+                        </list>
+                        <kanban class="o_wms_putaway_move_kanban" create="0" edit="0" delete="0" can_open="0" default_order="putaway_sequence asc, id">
+                            <field name="product_id"/>
+                            <field name="putaway_sequence" invisible="1"/>
+                            <field name="product_uom_qty"/>
+                            <field name="batch_origin"/>
+                            <field name="quantity"/>
+                            <field name="confirmation_quantity"/>
+                            <field name="putaway_difference_quantity"/>
+                            <field name="product_uom"/>
+                            <field name="putaway_progress_status" decoration-success="putaway_progress_status == 'finished'" decoration-danger="putaway_progress_status == 'unfinished'" widget="badge"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="o_wms_operation_card">
+                                        <div class="o_wms_operation_product d-flex justify-content-between align-items-center">
+                                            <field name="product_id" class="fs-3"/>
+                                            <field name="putaway_progress_status" decoration-success="putaway_progress_status == 'finished'" decoration-danger="putaway_progress_status == 'unfinished'" widget="badge"/>
+                                        </div>
+                                        <div class="o_wms_move_pick_quantities">
+                                            <div><strong>No. Dokumen: </strong><field name="batch_origin"/></div>
+                                            <div><strong>Qty Diterima: </strong><field name="quantity"/><field name="product_uom" class="ms-1"/></div>
+                                            <div><strong>Qty Disimpan: </strong><field name="confirmation_quantity"/><field name="product_uom" class="ms-1"/></div>
+                                            <div><strong>Perbedaan Qty: </strong><field name="putaway_difference_quantity"/><field name="product_uom" class="ms-1"/></div>
+                                        </div>
+                                        <div class="o_wms_operation_actions mt-2" style="display: flex !important; justify-content: flex-start !important; align-items: center !important; gap: 7px !important;">
+                                            <button name="action_open_note_wizard" type="object" icon="fa-sticky-note" title="Note"/>
+                                            <button name="action_open_move_putaway" type="object" class="btn btn-primary btn-sm" string="Putaway Details"/>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                    </field>
                 </page>
+            </xpath>
+
+            <xpath expr="//page[@name='page_detailed_operations']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+            <xpath expr="//page[@name='page_detailed_operations']" position="before">
+                <page string="Packer" name="page_packer_batch" invisible="not show_packer_page or 'Pack' not in (picking_type_name or '')">
+                    <group>
+                        <field name="scan_picker_product_button"
+                            widget="adt_scan_picker_product_button"
+                            nolabel="1"/>
+                        <field name="picker_scan_code"
+                            widget="adt_handheld_scan_code"
+                            placeholder="Scan handheld atau ketik kode"
+                            help="Bisa barcode, SKU, atau lot."/>
+                        <field name="allowed_picker_product_ids" invisible="1"/>
+                        <field name="allowed_picker_lot_ids" invisible="1"/>
+                        <field name="picker_product_id" domain="[('id', 'in', allowed_picker_product_ids)]"/>
+                        <field name="picker_lot_id" domain="[('id', 'in', allowed_picker_lot_ids)]"/>
+                    </group>
+                    <field name="picker_move_ids" mode="kanban,list" options="{'no_create': True, 'no_create_edit': True}">
+                        <kanban class="o_kanban_mobile" create="0" delete="0" can_open="0">
+                            <field name="product_id"/>
+                            <field name="product_uom_qty"/>
+                            <field name="quantity"/>
+                            <field name="difference_quantity"/>
+                            <field name="product_uom"/>
+                            <field name="state"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="o_wms_operation_card">
+                                        <div class="o_wms_operation_product"><field name="product_id" class="fs-3"/></div>
+                                        <div>
+                                            <div><strong>Total Qty: </strong><field name="product_uom_qty"/><field name="product_uom" groups="uom.group_uom" class="ms-1"/></div>
+                                            <div><strong>Quantity: </strong><field name="quantity"/><field name="product_uom" groups="uom.group_uom" class="ms-1"/></div>
+                                            <div><strong>Perbedaan Qty: </strong><field name="difference_quantity"/><field name="product_uom" groups="uom.group_uom" class="ms-1"/></div>
+                                        </div>
+                                        <div class="o_wms_operation_actions mt-2" style="display: flex !important; justify-content: flex-start !important; align-items: center !important; gap: 7px !important;">
+                                            <button name="action_open_note_wizard" type="object" icon="fa-sticky-note" title="Note"/>
+                                            <button name="action_open_move_operation" type="object" string="Pack Details" class="btn btn-primary btn-sm o_wms_operation_action" context="{'wms_operations_popup': True}"/>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                        <list create="0" edit="0" delete="0" default_order="status_check_sequence, id">
+                            <field name="status_check_sequence" column_invisible="True"/>
+                            <field name="product_default_code" string="Product"/>
+                            <field name="description_picking" string="Description" optional="show"/>
+                            <field name="product_uom_qty" string="Total Qty" readonly="1"/>
+                            <field name="quantity" string="Quantity" readonly="1"/>
+                            <field name="difference_quantity" string="Perbedaan Qty" readonly="1"/>
+                            <field name="product_uom" string="Unit" groups="uom.group_uom"/>
+                            <field name="result_package_ids" string="Destination Packages" widget="many2many_tags"/>
+                            <button name="action_open_move_operation" type="object" string="Pack Details" class="btn-primary" context="{'wms_operations_popup': True}"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+
+            <xpath expr="//page[@name='page_putaway']" position="before">
+                <page string="Picker" name="page_picker" invisible="not show_picker_page or picking_type_name not in ['Receipts', 'Receipt Internal']">
+                    <group>
+                        <field name="picker_scan_code"
+                            widget="adt_handheld_scan_code"
+                            placeholder="Scan handheld atau ketik kode"
+                            help="Bisa barcode, SKU, atau lot."/>
+                        <field name="scan_picker_product_by_lot_button"
+                            widget="adt_scan_picker_product_by_lot_button"
+                            invisible="1"
+                            nolabel="1"/>
+                        <field name="allowed_picker_product_ids" invisible="1"/>
+                        <field name="allowed_picker_lot_ids" invisible="1"/>
+                        <field name="picker_product_id" domain="[('id', 'in', allowed_picker_product_ids)]"/>
+                        <field name="picker_lot_id" domain="[('id', 'in', allowed_picker_lot_ids)]"/>
+                        <field name="picker_qty_finish" readonly="1"/>
+                    </group>
+                    <field name="picker_move_ids" mode="kanban,list" options="{'no_create': True, 'no_create_edit': True}">
+                        <kanban class="o_wms_picker_kanban" create="0" delete="0" can_open="0" default_order="picker_sequence asc, id">
+                            <field name="product_id"/>
+                            <field name="picker_sequence" invisible="1"/>
+                            <field name="product_uom_qty"/>
+                            <field name="batch_origin"/>
+                            <field name="quantity"/>
+                            <field name="picker_difference_quantity"/>
+                            <field name="product_uom"/>
+                            <field name="picker_progress_status"/>
+                            <field name="state"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="o_wms_operation_card">
+                                        <div class="o_wms_operation_product d-flex justify-content-between align-items-center">
+                                            <field name="product_id" class="fs-3"/>
+                                            <field name="picker_progress_status"
+                                                decoration-success="picker_progress_status == 'finished'"
+                                                decoration-danger="picker_progress_status == 'unfinished'"
+                                                widget="badge"/>
+                                        </div>
+                                        <div>
+                                            <div>
+                                                <strong>No. Dokumen: </strong>
+                                                <field name="batch_origin"/>
+                                            </div>
+                                            <div>
+                                                <strong>Total Qty: </strong>
+                                                <field name="product_uom_qty"/>
+                                                <field name="product_uom" groups="uom.group_uom" class="ms-1"/>
+                                            </div>
+                                            <div>
+                                                <strong>Qty Diterima: </strong>
+                                                <field name="quantity"/>
+                                                <field name="product_uom" groups="uom.group_uom" class="ms-1"/>
+                                            </div>
+                                            <div>
+                                                <strong>Perbedaan Qty: </strong>
+                                                <field name="picker_difference_quantity"/>
+                                                <field name="product_uom" groups="uom.group_uom" class="ms-1"/>
+                                            </div>
+                                        </div>
+                                        <div class="o_wms_operation_actions mt-2" style="display: flex !important; justify-content: flex-start !important; align-items: center !important; gap: 7px !important;">
+                                            <button name="action_open_note_wizard"
+                                                type="object"
+                                                icon="fa-sticky-note"
+                                                title="Note"/>
+                                            <button name="action_open_move_pick"
+                                                type="object"
+                                                string="Pick Details"
+                                                class="btn btn-primary btn-sm o_wms_operation_action"
+                                                invisible="state == 'draft'"/>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                        <list create="0" delete="0" edit="0" default_order="picker_sequence asc, id">
+                            <field name="state" column_invisible="True"/>
+                            <field name="picking_id" column_invisible="True"/>
+                            <field name="picker_sequence" column_invisible="True"/>
+                            <field name="batch_adt_type" string="Tipe Transaksi" readonly="1"/>
+                            <field name="batch_origin" string="No. Transaksi" readonly="1"/>
+                            <field name="product_default_code" string="Product" readonly="1"/>
+                            <field name="description_picking" string="Description" readonly="1" optional="show"/>
+                            <field name="lot_ids" widget="many2many_tags" string="Lot" groups="stock.group_production_lot"/>
+                            <field name="product_uom_qty" string="Total Qty" readonly="1"/>
+                            <field name="quantity" string="Qty Diterima" readonly="1"/>
+                            <field name="picker_difference_quantity" string="Perbedaan Qty" readonly="1"/>
+                            <field name="product_uom" string="Unit" readonly="1" groups="uom.group_uom"/>
+                            <field name="product_uom" groups="!uom.group_uom" column_invisible="True"/>
+                            <field name="picker_progress_status" string="Status"
+                                decoration-success="picker_progress_status == 'finished'"
+                                decoration-danger="picker_progress_status == 'unfinished'"
+                                widget="badge"/>
+                            <button name="action_open_move_pick"
+                                type="object"
+                                string="Pick Details"
+                                class="btn-primary"
+                                title="Open Picker"
+                                invisible="state == 'draft'"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+
+            <xpath expr="//page[@name='page_putaway']" position="before">
+                <page string="Picker" name="page_picker_pick" invisible="not show_picker_page or picking_type_name != 'Pick'">
+                    <group col="6" class="grid d-none d-md-grid grid-column">
+                        <field name="picker_scan_code"
+                            widget="adt_handheld_scan_code"
+                            placeholder="Scan handheld atau ketik kode"
+                            help="Bisa barcode, SKU, atau lot."/>
+                        <field name="allowed_picker_product_ids" invisible="1"/>
+                        <field name="allowed_picker_lot_ids" invisible="1"/>
+                        <field name="picker_product_id"
+                            string="Product"
+                            domain="[('id', 'in', allowed_picker_product_ids)]"/>
+                        <field name="picker_lot_id"
+                            string="Lot Number"
+                            domain="[('id', 'in', allowed_picker_lot_ids)]"/>
+                    </group>
+                    <div class="d-flex flex-row flex-wrap align-items-center gap-3 d-md-none mb-3">
+                        <strong>Sort By</strong>
+                        <div class="d-flex align-items-center gap-1">
+                            <field name="picker_sort_by_location" nolabel="1" widget="adt_picker_sort_boolean"/>
+                            <span>Location</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <field name="picker_sort_by_product" nolabel="1" widget="adt_picker_sort_boolean"/>
+                            <span>Product</span>
+                        </div>
+                    </div>
+                    <field name="picker_move_line_ids" mode="kanban,list" options="{'no_create': True, 'no_create_edit': True, 'unlink': False}">
+                        <kanban class="o_wms_picker_kanban" create="0" delete="0" can_open="0">
+                            <field name="product_id"/>
+                            <field name="batch_adt_type"/>
+                            <field name="batch_origin"/>
+                            <field name="location_id"/>
+                            <field name="lot_id"/>
+                            <field name="lot_name"/>
+                            <field name="product_uom_qty"/>
+                            <field name="quantity"/>
+                            <field name="confirmation_quantity"/>
+                            <field name="product_uom_id"/>
+                            <field name="pick_status"/>
+                            <field name="picker_location_sort_key"/>
+                            <field name="picker_product_sort_key"/>
+                            <field name="picker_default_sort_key"/>
+                            <field name="state"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="o_wms_operation_card">
+                                        <div class="o_wms_operation_product d-flex justify-content-between align-items-center">
+                                            <field name="product_id" class="fs-3"/>
+                                            <field name="pick_status"
+                                                decoration-success="pick_status == 'finished'"
+                                                decoration-danger="pick_status == 'unfinished'"
+                                                widget="badge"/>
+                                        </div>
+                                        <div>
+                                            <div><strong>No. Dokumen: </strong><field name="batch_origin"/></div>
+                                            <div><strong>Tipe Transaksi: </strong><field name="batch_adt_type"/></div>
+                                            <div><strong>Pick From: </strong><field name="location_id" widget="location_short_many2one" context="{'show_location_short_name': True}"/></div>
+                                            <div><strong>LOT Number: </strong><field name="lot_id" groups="stock.group_production_lot"/><field name="lot_name" groups="stock.group_production_lot"/></div>
+                                            <div><strong>Total Qty: </strong><field name="product_uom_qty"/><field name="product_uom_id" groups="uom.group_uom" class="ms-1"/></div>
+                                            <div><strong>Available Qty: </strong><field name="quantity"/><field name="product_uom_id" groups="uom.group_uom" class="ms-1"/></div>
+                                            <div><strong>Qty Diambil: </strong><field name="confirmation_quantity"/><field name="product_uom_id" groups="uom.group_uom" class="ms-1"/></div>
+                                        </div>
+                                        <div class="o_wms_operation_actions mt-2" style="display: flex !important; justify-content: flex-start !important; align-items: center !important; gap: 7px !important;">
+                                            <button name="action_open_note_wizard" type="object" icon="fa-sticky-note" title="Note"/>
+                                            <button name="action_open_move_pick" type="object" string="Pick Details" class="btn btn-primary btn-sm o_wms_operation_action" invisible="state == 'draft'"/>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                        <list create="0" delete="0" editable="bottom">
+                            <field name="picker_location_sort_key" column_invisible="True"/>
+                            <field name="picker_product_sort_key" column_invisible="True"/>
+                            <field name="picker_default_sort_key" column_invisible="True"/>
+                            <field name="state" column_invisible="True"/>
+                            <field name="adt_dest_location_id" column_invisible="True"/>
+                            <field name="allowed_matching_lot_ids" column_invisible="True"/>
+                            <field name="batch_adt_type" string="Tipe Transaksi" readonly="1" optional="show"/>
+                            <field name="batch_origin" string="No. Dokumen" readonly="1" optional="show"/>
+                            <field name="handheld_scan_code" widget="adt_handheld_scan_code"
+                                string="Scan Handheld"
+                                placeholder="Scan handheld: lot atau lokasi"/>
+                            <field name="location_id" string="Pick From" widget="location_short_many2one"
+                                context="{'show_location_short_name': True}"/>
+                            <field name="product_id" string="Product" readonly="1" context="{'tijari_stock_picking_product_code_only': True}"/>
+                            <field name="description_picking" string="Description" optional="show"/>
+                            <field name="lot_id" string="Lot/Serial Number" readonly="1" groups="stock.group_production_lot"/>
+                            <field name="lot_name" string="Lot Code" readonly="1" groups="stock.group_production_lot" optional="hide"/>
+                            <field name="quantity" string="Available Qty" readonly="1"/>
+                            <field name="confirmation_quantity" string="Qty Diambil"/>
+                            <field name="product_uom_id" string="UoM" readonly="1" groups="uom.group_uom" optional="show"/>
+                            <field name="matching_lot_id" string="Confirm LOT"
+                                groups="stock.group_production_lot"
+                                readonly="pick_status == 'finished' or state in ('done', 'cancel')"
+                                force_save="1"
+                                domain="[('id', 'in', allowed_matching_lot_ids)]"/>
+                            <field name="matching_loc_dest_id" string="Confirm Loc"
+                                readonly="pick_status == 'finished' or state in ('done', 'cancel')"
+                                force_save="1"
+                                domain="[('id', 'child_of', adt_dest_location_id)]"/>
+                            <field name="pick_status" string="Status"
+                                decoration-success="pick_status == 'finished'"
+                                decoration-danger="pick_status == 'unfinished'"
+                                widget="badge" readonly="1"/>
+                            <button name="action_mark_check_pick_finished_batch" type="object" icon="fa-check"
+                                title="Finish"
+                                class="btn-primary" invisible="pick_status == 'finished' or state in ('done', 'cancel')"/>
+                            <button name="action_mark_check_pick_unfinished_batch" type="object" icon="fa-undo"
+                                title="Undo"
+                                invisible="pick_status != 'finished' or state in ('done', 'cancel')"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+
+            <!-- Keep Additional Info as the last batch tab. -->
+            <xpath expr="//page[@name='page_putaway']" position="after">
+                <xpath expr="//page[@name='page_batch_additional_info']" position="move"/>
             </xpath>
 
         </field>
@@ -181,12 +656,23 @@
                     <field name="batch_adt_type" string="Tipe Transaksi"/>
                     <field name="batch_origin" string="No. Transaksi"/>
                     <field name="product_id" required="1" context="{'tijari_stock_picking_product_code_only': True}" readonly="(state != 'draft' and not additional) or move_lines_count &gt; 0"/>
-                    <field name="product_uom_qty" string="Qty Total" readonly="not is_initial_demand_editable"/>
-                    <field name="quantity" string="Qty Diterima" readonly="not is_quantity_done_editable"/>
-                    <field name="confirmation_quantity" string="Qty Disimpan"/>
-                    <field name="product_uom" readonly="state != 'draft' and id" options="{'no_open': True, 'no_create': True}" string="UoM" groups="uom.group_uom"/>
+                    <field name="description_picking" string="Description" optional="show"/>
                     <field name="lot_ids" widget="many2many_tags" string="Lot/Serial Number" groups="stock.group_production_lot"/>
-                    <field name="difference_quantity" string="Perbedaan Qty" readonly="1" decoration-danger="difference_quantity &gt; 0"/>
+                    <field name="product_uom_qty" string="Total Qty" readonly="not is_initial_demand_editable"/>
+                    <field name="so_confirmation_quantity" string="Qty Dikirim" readonly="1"
+                        column_invisible="parent.picking_type_name != 'Delivery Orders'"/>
+                    <field name="quantity" string="Quantity" readonly="not is_quantity_done_editable"
+                        column_invisible="parent.picking_type_name not in ['Pack', 'Pack Internal']"/>
+                    <field name="confirmation_quantity" string="Qty Diambil" readonly="1"
+                        column_invisible="parent.picking_type_name not in ['Pick', 'Pick Internal', 'Pick Components']"/>
+                    <field name="quantity" string="Qty Diterima" readonly="not is_quantity_done_editable"
+                        column_invisible="parent.picking_type_name in ['Pack', 'Pack Internal', 'Pick', 'Pick Internal', 'Pick Components', 'Delivery Orders']"/>
+                    <field name="confirmation_quantity" string="Qty Disimpan"
+                        column_invisible="parent.picking_type_name in ['Pack', 'Pack Internal', 'Pick', 'Pick Internal', 'Pick Components', 'Delivery Orders']"/>
+                    <field name="difference_quantity" string="Perbedaan Qty" readonly="1"
+                        column_invisible="parent.picking_type_name in ['Pack', 'Pack Internal', 'Delivery Orders']"
+                        decoration-danger="difference_quantity &gt; 0"/>
+                    <field name="product_uom" readonly="state != 'draft' and id" options="{'no_open': True, 'no_create': True}" string="UoM" groups="uom.group_uom"/>
                     <button name="action_print_lot_number_line"
                         type="object"
                         icon="fa-print"
@@ -198,14 +684,10 @@
                         icon="fa-sticky-note"
                         title="Note"
                     />
-                    <button name="action_open_move_pick"
-                        type="object"
-                        string="To Process"
-                        title="Open Picker"
-                        invisible="picking_type_name not in ['Receipts', 'Receipt Internal', 'Storage', 'Store Finished Product'] or state == 'draft'"/>
-                    <button name="action_open_move_lines"
+                    <button name="action_open_move_operation"
                         type="object"
                         icon="fa-list"
+                        context="{'wms_operations_popup': True}"
                         title="Open Move Lines"/>
                 </list>
             </xpath>
@@ -262,6 +744,24 @@
 
             </xpath>
 
+        </field>
+    </record>
+
+    <record id="stock_add_to_wave_form_inherit_tijari" model="ir.ui.view">
+        <field name="name">stock.add.to.wave.form.inherit.tijari</field>
+        <field name="model">stock.add.to.wave</field>
+        <field name="inherit_id" ref="stock_picking_batch.stock_add_to_wave_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='user_id']" position="replace">
+                <field name="operation_type_name" invisible="1"/>
+                <field name="pick_responsible_ids" widget="many2many_avatar_user"/>
+                <field name="pack_responsible_ids" widget="many2many_avatar_user"
+                    invisible="operation_type_name not in ('Pick', 'Pick Internal', 'Pack', 'Delivery Orders')"/>
+                <field name="do_responsible_ids" widget="many2many_avatar_user"
+                    invisible="operation_type_name not in ('Pick', 'Pick Internal', 'Pack', 'Delivery Orders')"/>
+                <field name="putaway_responsible_ids" widget="many2many_avatar_user"
+                    invisible="operation_type_name not in ['Receipts', 'Receipt Internal', 'Storage', 'Store Finished Product']"/>
+            </xpath>
         </field>
     </record>
 

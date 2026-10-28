@@ -123,7 +123,7 @@
                         <field name="allowed_picker_lot_ids" invisible="1"/>
                         <field name="picker_product_id" domain="[('id', 'in', allowed_picker_product_ids)]"/>
                         <field name="picker_lot_id" domain="[('id', 'in', allowed_picker_lot_ids)]"/>
-                        
+                        <field name="picker_qty_finish" readonly="1"/>
                     </group>
                     <field name="picker_move_ids" groups="!tijari_wms_18.group_operator" mode="kanban,list">
                         <kanban class="o_wms_picker_kanban" create="0" delete="0" can_open="0" default_order="picker_sequence asc, id">
@@ -347,6 +347,7 @@
                         <field name="allowed_putaway_lot_ids" invisible="1"/>
                         <field name="putaway_product_id" domain="[('id', 'in', allowed_putaway_product_ids)]"/>
                         <field name="putaway_lot_id" domain="[('id', 'in', allowed_putaway_lot_ids)]"/>
+                        <field name="putaway_qty_finish" readonly="1"/>
                     <!-- <field name="putaway_progress_status" string="Status"
                         decoration-success="putaway_progress_status == 'finished'"
                         decoration-danger="putaway_progress_status == 'unfinished'"

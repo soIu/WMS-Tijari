@@ -7,7 +7,7 @@
 
             <form create="false" edit="false">
 
-                <group class="grid-container grid d-none d-md-grid grid-column" >
+                <group class="grid-container">
                     <field name="package_level_id" invisible='1' />
                     <field name="package_id"/>
                     <field name="package_cat"/>
@@ -23,11 +23,32 @@
                     <list create="false" delete="false" edit="false">
                         <field 
                             name="product_id"
-                            context="{'tijari_stock_picking_product_code_only': True}"/>
+                            context="{'tijari_stock_picking_product_code_only': False}"/>
                         <field name="description_picking" string="Description"/>
                         <field name="quantity"/>
                         <field name="product_uom_id" string="UoM"/>
                     </list>
+                    <kanban create="false" delete="false" edit="false" class="o_package_level_kanban">
+                        <field name="product_id"/>
+                        <field name="description_picking"/>
+                        <field name="quantity"/>
+                        <field name="product_uom_id"/>
+                        <templates>
+                            <t t-name="card" class="o_package_level_card">
+                                <div class="o_package_level_card_title">
+                                    <strong>
+                                        <t t-esc="record.product_id.value"/>
+                                    </strong>
+                                </div>
+                                
+                                <div class="o_package_level_card_qty">
+                                    Qty Dikirim :
+                                    <field name="quantity"/>
+                                    <span class="ms-2"><field name="product_uom_id"/></span>
+                                </div>
+                            </t>
+                        </templates>
+                    </kanban>
                 </field>
 
                 <footer>

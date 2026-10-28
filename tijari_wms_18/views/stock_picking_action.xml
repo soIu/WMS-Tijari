@@ -17,8 +17,23 @@
       <field name="name">My Worklist</field>
       <field name="res_model">stock.picking</field>
       <field name="view_mode">kanban,list,form</field>
-      <field name="domain">[('user_ids', 'in', [uid]), ('state', '!=', 'done')]</field>
-      <field name="context">{'group_by': 'picking_type_id', 'search_default_available': 1, 'tijari_my_worklist': 1}</field>
+        <field name="domain">
+            [
+                '&amp;', ('state', '!=', 'draft'),
+                '|', '|', '|', '|',
+                '&amp;', ('putaway_responsible_ids', 'in', [uid]),
+                    ('picking_type_name', 'in', ['Receipts', 'Receipt Internal', 'Storage', 'Store Finished Product']),
+                '&amp;', ('pick_responsible_ids', 'in', [uid]),
+                    ('picking_type_name', 'in', ['Pick', 'Pick Internal', 'Pick Components']),
+                '&amp;', ('pick_responsible_ids', 'in', [uid]),
+                    ('picking_type_name', 'in', ['Receipts', 'Receipt Internal']),
+                '&amp;', ('pack_responsible_ids', 'in', [uid]),
+                    ('picking_type_name', '=', 'Pack'),
+                '&amp;', ('do_responsible_ids', 'in', [uid]),
+                    ('picking_type_name', 'in', ['Delivery Orders'])
+            ]
+        </field>
+        <field name="context">{'group_by': 'picking_type_id', 'tijari_my_worklist': 1}</field>
       <field name="groups_id" eval="[(6, 0, [ref('tijari_wms_18.group_operator'), ref('tijari_wms_18.group_warehouse_manager'), ref('tijari_wms_18.group_warehouse_head'), ref('tijari_wms_18.group_warehouse_admin'), ref('tijari_wms_18.group_it_staff'), ref('stock.group_stock_manager'), ref('base.group_system')])]"/>
   </record>
 

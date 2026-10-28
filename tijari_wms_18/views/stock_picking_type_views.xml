@@ -33,6 +33,18 @@
             </xpath>
         </field>
     </record>
+    <record id="view_production_lot_tree_print_inherit" model="ir.ui.view">
+    <field name="name">stock.lot.list.print.inherit</field>
+    <field name="model">stock.lot</field>
+    <field name="inherit_id" ref="stock.view_production_lot_tree"/>
+    <field name="arch" type="xml">
+        <field name="name" position="before">
+            <header>
+                    <button name="action_print_lot_number" string="Print Lot" type="object" class="btn-warning"/>
+            </header>
+        </field>
+    </field>
+</record>
 
     <!-- <record id="stock_picking_type_kanban_add_draft_button" model="ir.ui.view">
         <field name="name">stock.picking.type.kanban.add.draft.button</field>

@@ -14,6 +14,7 @@ class Company(models.Model):
     logo_dui = fields.Binary(attachment=False)
     bg_lui = fields.Binary(attachment=False)
     bg_dui = fields.Binary(attachment=False)
+    login_bg = fields.Image(attachment=False, max_width=2560, max_height=1440)
 
     def get_menus_preset(self):
         return [o['id'] for o in self.menus_preset.read(['id'])]

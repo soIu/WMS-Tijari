@@ -266,7 +266,7 @@ class StockPicking(models.Model):
     adt_status = fields.Char(string='Status (Acumatica)')
     adt_total_qty = fields.Float(string='Qty Total (Acumatica)')
     
-    adt_type = fields.Char(string='Type (Acumatica)')
+    adt_type = fields.Char(string='Tipe Transaksi')
     
     adt_external_ref = fields.Char(string='External Ref (Acumatica)')
     adt_warehouse_code = fields.Char(string='Warehouse (Acumatica)')
@@ -499,6 +499,10 @@ class StockPicking(models.Model):
         string='Status',
         compute='_compute_putaway_progress_status',
     )
+    putaway_qty_finish = fields.Float(
+        string='Quantity Dipenuhi',
+        compute='_compute_putaway_qty_finish',
+    )
     allowed_picker_product_ids = fields.Many2many(
         'product.product',
         compute='_compute_allowed_picker_product_ids',
@@ -533,6 +537,10 @@ class StockPicking(models.Model):
         ],
         string='Status',
         compute='_compute_picker_progress_status',
+    )
+    picker_qty_finish = fields.Float(
+        string='Quantity Dipenuhi',
+        compute='_compute_picker_qty_finish',
     )
     picker_move_ids = fields.Many2many(
         comodel_name="stock.move",
@@ -1589,6 +1597,20 @@ class StockPicking(models.Model):
             )
 
     @api.depends(
+        'picker_product_id',
+        'picker_lot_id',
+        'move_ids_without_package',
+        'move_ids_without_package.product_id',
+        'move_ids_without_package.quantity',
+        'move_ids_without_package.state',
+    )
+    def _compute_picker_qty_finish(self):
+        for picking in self:
+            picking.picker_qty_finish = sum(
+                picking._get_picker_moves().mapped('quantity')
+            )
+
+    @api.depends(
         'putaway_product_id',
         'putaway_lot_id',
         'move_line_ids',
@@ -1647,6 +1669,23 @@ class StockPicking(models.Model):
                 if all_lines_finished
                 and float_compare(confirmation_qty, picked_qty, precision_rounding=rounding) == 0
                 else 'unfinished'
+            )
+
+    @api.depends(
+        'putaway_product_id',
+        'putaway_lot_id',
+        'move_line_ids',
+        'move_line_ids.product_id',
+        'move_line_ids.lot_id',
+        'move_line_ids.lot_name',
+        'move_line_ids.quantity',
+        'move_line_ids.confirmation_quantity',
+        'move_line_ids.state',
+    )
+    def _compute_putaway_qty_finish(self):
+        for picking in self:
+            picking.putaway_qty_finish = sum(
+                picking._get_putaway_move_lines().mapped('confirmation_quantity')
             )
 
     @api.depends(
@@ -2309,6 +2348,13 @@ class StockPicking(models.Model):
         action = {}
         action['type'] = 'ir.actions.act_url'
         action['url'] = '/print/warehouse_pack?id=' + str(self.id)
+        action['target'] = 'new'
+        return action
+
+    def delivery_slip_pack(self):
+        action = {}
+        action['type'] = 'ir.actions.act_url'
+        action['url'] = '/print/delivery_slip_pack_?id=' + str(self.id)
         action['target'] = 'new'
         return action
 
@@ -4720,6 +4766,8 @@ class StockPicking(models.Model):
 
         return base64.b64encode(buffer.getvalue()).decode()
 
+    def action_test_function(self):
+        return True
     
 class StockReturnPicking(models.TransientModel):
     _inherit = 'stock.return.picking'
