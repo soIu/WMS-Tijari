@@ -37,10 +37,24 @@
             action="action_stock_picking_my_worklist"
             groups="tijari_wms_18.group_operator,stock.group_stock_manager,base.group_system"/>
 
+  <menuitem id="menu_stock_picking_my_worklist_batch_transfer"
+            name="Batch Transfer"
+            parent="menu_stock_picking_worklist"
+            sequence="20"
+            action="stock_picking_batch.stock_picking_batch_action"
+            groups="tijari_wms_18.group_operator,stock.group_stock_manager,base.group_system"/>
+
+  <menuitem id="menu_stock_picking_my_worklist_wave_transfer"
+            name="Wave Transfer"
+            parent="menu_stock_picking_worklist"
+            sequence="30"
+            action="stock_picking_batch.action_picking_tree_wave"
+            groups="tijari_wms_18.group_operator,stock.group_stock_manager,base.group_system"/>
+
   <menuitem id="menu_stock_picking_my_worklist_overview"
             name="Overview"
             parent="menu_stock_picking_worklist"
-            sequence="20"
+            sequence="40"
             action="stock.stock_picking_type_action"
             groups="tijari_wms_18.group_operator,stock.group_stock_manager,base.group_system"/>
 

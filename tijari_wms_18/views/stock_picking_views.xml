@@ -86,6 +86,48 @@
         </field>
     </record>
 
+    <!-- Keep My Worklist ordering scoped to its own action. Odoo's assigned
+         state is displayed as Ready; descending state order places it after
+         the active picking states. -->
+    <record id="stock_picking_my_worklist_kanban" model="ir.ui.view">
+        <field name="name">stock.picking.my.worklist.kanban</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.stock_picking_kanban"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="create">0</attribute>
+                <attribute name="default_order">state desc, id</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_picking_my_worklist_list" model="ir.ui.view">
+        <field name="name">stock.picking.my.worklist.list</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="default_order">state desc, id</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_stock_picking_my_worklist_kanban_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="stock_picking_my_worklist_kanban"/>
+        <field name="act_window_id" ref="action_stock_picking_my_worklist"/>
+    </record>
+
+    <record id="action_stock_picking_my_worklist_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="stock_picking_my_worklist_list"/>
+        <field name="act_window_id" ref="action_stock_picking_my_worklist"/>
+    </record>
+
      <record id="view_picking_form_inherit_acumatica_header" model="ir.ui.view">
         <field name="name">stock.picking.form.acumatica.header</field>
         <field name="model">stock.picking</field>
@@ -412,7 +454,7 @@
                                 string="Unpack Details"/> 
                             <field name="shipped_qty" optional='hide' />
                         </list>
-                        <kanban class="o_kanban_mobile" can_open="0">
+                        <kanban class="o_kanban_mobile" can_open="0" default_order="unpack_status_sequence asc, id">
                             <field name="product_id" invisible="1"/>
                             <field name="status_check" invisible="1"/>
                             <field name="product_uom_qty" invisible="1"/>
@@ -497,14 +539,14 @@
                             <div class="o_row w-100 tijari_scan_filter_row" colspan="2">
                                 <label for="package_scan_code" class="fw-bold text-dark mb-0 text-nowrap" style="color: black !important; font-weight: bold !important;"/>
                                 <div class="tijari_scan_filter_controls">
-                                    <field name="package_scan_code" nolabel="1"
+                                    <field name="package_scan_code"
                                         widget="adt_handheld_scan_code"
                                         invisible="picking_type_name != 'Delivery Orders' and not is_ito_internal_transfer"/>
                                     <button name="action_reset_scan_filters" type="object" string="Reset Filter" icon="fa-undo" class="btn-secondary btn-sm" title="Reset semua filter scan pada transfer ini" invisible="picking_type_name != 'Delivery Orders' and not is_ito_internal_transfer"/>
                                 </div>
                             </div>
 
-                            <label for="scanned_package_id" class="fw-bold text-dark" style="color: black !important; font-weight: bold !important;"/>
+                            <!-- <label for="scanned_package_id" class="fw-bold text-dark" style="color: black !important; font-weight: bold !important;"/> -->
                             <field name="scanned_package_id"
                                 string="Package ID"
                                 domain="[('id', 'in', available_package_ids)]"
@@ -758,6 +800,7 @@
                     'default_date': scheduled_date,
                     'default_date_deadline': date_deadline,
                     'picking_type_code': picking_type_code,
+                    'wms_operations_popup': True,
                     'default_picking_id': id,
                     'form_view_ref': 'tijari_wms_18.stock_move_pick_view',
                     'address_in_id': partner_id,
@@ -980,6 +1023,7 @@
                                     title="Open Move"
                                     icon="fa-list"
                                     class="btn-link"
+                                    context="{'wms_operations_popup': True}"
                                 />
                             </list>
                             <!-- KANBAN PICK NOTEBOOK PICKER  -->
@@ -1354,6 +1398,7 @@
                                                 type="object"
                                                 string="Pack Details"
                                                 class="btn btn-primary btn-sm o_wms_operation_action"
+                                                context="{'wms_operations_popup': True}"
                                             />
                                         </div>
                                     </t>
@@ -1417,7 +1462,13 @@
                     type="object"
                     class="btn-primary"
                     invisible="state != 'done' or picking_type_name not in ['Pack', 'Pack Internal']"/>
-                
+                    
+                <button name="delivery_slip_pack"
+                    string="Print Delivery Slip"
+                    type="object"
+                    class="btn-primary"
+                    invisible="state != 'done' or picking_type_name not in ['Pack', 'Pack Internal']"/>
+
                 <button name="action_print_warehouse_pick"
                     string="Print Pick"
                     type="object"

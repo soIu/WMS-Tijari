@@ -121,5 +121,32 @@
         <record id="api_scheduler_transaction_import" model="api.scheduler.job">
             <field name="ir_cron_id" ref="ir_cron_acumatica_transaction_import"/>
         </record>
+
+        <record id="api_scheduler_webhook_process" model="api.scheduler.job">
+            <field name="name">Acumatica: Process Pending Webhook Logs</field>
+            <field name="code">acumatica_webhook_process</field>
+            <field name="description">Process pending Acumatica webhook logs.</field>
+            <field name="active">False</field>
+            <field name="execution_interval">recurring</field>
+            <field name="interval_value">5</field>
+            <field name="interval_unit">minutes</field>
+            <field name="timezone">Asia/Jakarta</field>
+            <field name="do_not_overlap">True</field>
+        </record>
+
+        <record id="ir_cron_acumatica_process_pending_webhook_logs" model="ir.cron">
+            <field name="name">Acumatica: Process Pending Webhook Logs</field>
+            <field name="model_id" ref="model_api_scheduler_job"/>
+            <field name="state">code</field>
+            <field name="code">model.browse(env.ref('acumatica_all_import.api_scheduler_webhook_process').id).run_from_cron()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">5</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="api_scheduler_webhook_process" model="api.scheduler.job">
+            <field name="ir_cron_id" ref="ir_cron_acumatica_process_pending_webhook_logs"/>
+        </record>
     </data>
 </odoo>

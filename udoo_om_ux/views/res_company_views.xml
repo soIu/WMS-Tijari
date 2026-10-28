@@ -16,6 +16,9 @@
                         <field name="bg_dui" string="Light Mode" widget="image" options="{'size': [400, 0]}"/>
                         <field name="bg_lui" string="Dark Mode" widget="image" options="{'size': [400, 0]}"/>
                     </group>
+                    <group string="Login Background">
+                        <field name="login_bg" string="Background Image" widget="image" options="{'size': [400, 0]}"/>
+                    </group>
                 </group>
             </xpath>
         </field>

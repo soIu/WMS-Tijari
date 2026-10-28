@@ -15,11 +15,12 @@ class StockLot(models.Model):
     qr_code_image = fields.Binary(string='Sign')
 
     def action_print_lot_number(self):
-        self.ensure_one()
-        self.create_qrcode_name()
+        for lot in self:
+            lot.create_qrcode_name()
+        ids = ','.join(str(i) for i in self.ids)
         return {
             'type': 'ir.actions.act_url',
-            'url': '/print/lot_number?id=%s' % self.id,
+            'url': '/print/lot_number?ids=%s' % ids,
             'target': 'new',
         }
 

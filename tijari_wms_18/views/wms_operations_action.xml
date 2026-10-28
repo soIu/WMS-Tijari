@@ -9,7 +9,7 @@
             ('adt_is_document_only', '=', False),
             ('picking_type_id.is_document_only_api', '=', False),
         ]</field>
-        <field name="context">{'search_default_tijari_receive': 1}</field>
+        <field name="context">{'search_default_tijari_receive': 1, 'search_default_my_transfers': 1}</field>
     </record>
 
     <record id="stock.action_picking_tree_outgoing" model="ir.actions.act_window">
@@ -17,7 +17,7 @@
             ('adt_is_document_only', '=', False),
             ('picking_type_id.is_document_only_api', '=', False),
         ]</field>
-        <field name="context">{'search_default_tijari_delivery': 1}</field>
+        <field name="context">{'search_default_tijari_delivery': 1, 'search_default_my_transfers': 1}</field>
     </record>
 
     <record id="action_wms_operations_purchase_receipts" model="ir.actions.act_window">

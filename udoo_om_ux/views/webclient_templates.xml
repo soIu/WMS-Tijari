@@ -3,6 +3,11 @@
     <template id="webclient_login" inherit_id="web.login_layout">
         <xpath expr="//t[@t-call='web.frontend_layout']/t[last()]" position="after">
             <t t-set="body_classname" t-value="'light-dm o_home_menu_background'"/>
+            <style t-if="request.env.company.login_bg">
+                body.light-dm {
+                    --homeMenu-bg-image: url("<t t-out="image_data_uri(request.env.company.login_bg)"/>");
+                }
+            </style>
         </xpath>
     </template>
 

@@ -1,7 +1,7 @@
 
 {
     'name': 'WMS from Tijari',
-    'version': '18.0.0.2.0',
+    'version': '18.0.0.2.1',
     'summary': 'WMS',
     'description': 'WMS',
     'category': 'Tools',
@@ -92,6 +92,7 @@
             'tijari_wms_18/static/src/js/list_table_auto_layout.js',
             'tijari_wms_18/static/src/lib/zxing-browser.min.js',
             'tijari_wms_18/static/src/js/focus_move_line_field.js',
+            'tijari_wms_18/static/src/js/picker_sort_boolean_field.js',
             'tijari_wms_18/static/src/js/stock_move_line_owner_quant_domain.js',
             'tijari_wms_18/static/src/js/auto_save_view_button.js',
             'tijari_wms_18/static/src/js/generate_lot_button.js',

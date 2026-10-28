@@ -220,6 +220,8 @@ class ApiSchedulerJob(models.Model):
 
     def _run_configured_process(self):
         self.ensure_one()
+        if self.code == 'acumatica_webhook_process':
+            return self.env['acumatica.webhook.log'].cron_process_pending_webhook_logs()
         if not self.acumatica_import:
             raise UserError('No process is configured for this scheduler.')
         if self.acumatica_data_type == 'master':

@@ -12,6 +12,39 @@ _logger = logging.getLogger(__name__)
 class StockMoveLine(models.Model):
     _inherit  = 'stock.move.line'
     _description = "Stock Move Line"
+    wave_picking_type_id = fields.Many2one(
+        'stock.picking.type',
+        related='picking_id.picking_type_id',
+        string='Operation Type',
+        store=True,
+        index=True,
+        readonly=True,
+    )
+    batch_adt_type = fields.Char(
+        related='picking_id.adt_type', string='Tipe Transaksi', readonly=True,
+    )
+    batch_origin = fields.Char(
+        related='picking_id.origin', string='No. Transaksi', readonly=True,
+    )
+    # Kept stored so databases with the previous embedded-list ordering can
+    # validate their existing view architecture during the next module upgrade.
+    picker_batch_sort_key = fields.Char(
+        string='Batch Picker Sort Key',
+        compute='_compute_picker_batch_sort_key',
+        store=True,
+    )
+    picker_location_sort_key = fields.Char(
+        string='Picker Location Sort Key',
+        compute='_compute_picker_client_sort_keys',
+    )
+    picker_product_sort_key = fields.Char(
+        string='Picker Product Sort Key',
+        compute='_compute_picker_client_sort_keys',
+    )
+    picker_default_sort_key = fields.Char(
+        string='Picker Default Sort Key',
+        compute='_compute_picker_client_sort_keys',
+    )
     # Bisa dihapus sebelum golive
     adt_dest_location_id = fields.Many2one(
         "stock.location",
@@ -1352,6 +1385,7 @@ class StockMoveLine(models.Model):
 
     def action_save_picker_details(self):
         self.ensure_one()
+        is_batch_view = bool(self.picking_id and self.picking_id.batch_id)
 
         if (
             self.picking_id
@@ -1369,14 +1403,16 @@ class StockMoveLine(models.Model):
             self.picking_id
             and "Pack" in (self.picking_id.picking_type_id.name or "")
         ):
-            return self.move_id.action_open_move_operation()
+            if not is_batch_view:
+                return self.move_id.action_open_move_operation()
 
         elif (
             self.picking_id
             and "Delivery Orders" in (self.picking_id.picking_type_id.name or "")
         ):
             self.action_mark_check_unpack_finished()
-            return self.move_id.action_open_unpack_detail()
+            if not is_batch_view:
+                return self.move_id.action_open_unpack_detail()
 
         elif self.is_manufacturing:
             self.action_mark_check_finished_mo()
@@ -1390,6 +1426,8 @@ class StockMoveLine(models.Model):
                 raise ValidationError(_("Quantity tidak boleh 0, silahkan input quantity terlebih dahulu"))
             self.write({'picker_status': 'finished'})
 
+        if is_batch_view:
+            return
         return self.move_id.action_open_move_pick()
     
     def action_rollback_details(self):
@@ -1567,6 +1605,15 @@ class StockMoveLine(models.Model):
 
 
     def action_mark_check_pick_finished(self):
+        if self.filtered(lambda line: line.picking_id.batch_id):
+            return self._mark_check_pick_finished(reload_action=False)
+        return self._mark_check_pick_finished(reload_action='reload')
+
+    def action_mark_check_pick_finished_batch(self):
+        """Finish a picker line from a batch without reloading the client."""
+        return self._mark_check_pick_finished(reload_action=False)
+
+    def _mark_check_pick_finished(self, reload_action):
         self._validate_before_mark_pick_finished()
         if self.matching == 'not_match':
             self._check_matching_status_pick()
@@ -1575,12 +1622,20 @@ class StockMoveLine(models.Model):
         # Refresh every move in the picking so the list order reflects status
         # changes and any older rows with stale sequence values.
         self.mapped('move_id.picking_id.move_ids_without_package')._refresh_pick_status_sequence()
-        return {'type': 'ir.actions.client', 'tag': 'reload'}
+        if reload_action:
+            return {'type': 'ir.actions.client', 'tag': reload_action}
 
     def action_mark_check_pick_unfinished(self):
         self.write({'pick_status': 'unfinished'})
         self.mapped('move_id.picking_id.move_ids_without_package')._refresh_pick_status_sequence()
+        if self.filtered(lambda line: line.picking_id.batch_id):
+            return
         return self.move_id.action_open_move_pick()
+
+    def action_mark_check_pick_unfinished_batch(self):
+        """Undo a finished picker line from a batch without reloading the client."""
+        self.write({'pick_status': 'unfinished'})
+        self.mapped('move_id.picking_id.move_ids_without_package')._refresh_pick_status_sequence()
 
     def action_mark_check_pick_unfinished_form(self):
         self.write({'pick_status': 'unfinished'})
@@ -1606,6 +1661,49 @@ class StockMoveLine(models.Model):
             ],
             'target': 'new',
         }
+
+    def action_open_note_wizard(self):
+        self.ensure_one()
+        return self.move_id.action_open_note_wizard()
+
+    @api.depends(
+        'pick_status', 'location_id.name', 'product_id.display_name',
+        'move_id.sequence', 'picking_id.batch_id.picker_sort_by_location',
+        'picking_id.batch_id.picker_sort_by_product',
+    )
+    def _compute_picker_batch_sort_key(self):
+        for line in self:
+            batch = line.picking_id.batch_id
+            if batch.picker_sort_by_location:
+                primary = (line.location_id.name or '').casefold()
+            elif batch.picker_sort_by_product:
+                primary = (line.product_id.display_name or '').casefold()
+            else:
+                primary = ''
+            line.picker_batch_sort_key = '%s|%s|%010d|%010d' % (
+                '1' if line.pick_status == 'finished' else '0',
+                primary,
+                line.move_id.sequence or 0,
+                line._origin.id or 0,
+            )
+
+    @api.depends(
+        'pick_status', 'location_id.name', 'product_id.display_name',
+        'move_id.sequence',
+    )
+    def _compute_picker_client_sort_keys(self):
+        for line in self:
+            status = '1' if line.pick_status == 'finished' else '0'
+            sequence = line.move_id.sequence or 0
+            line_id = line._origin.id or 0
+            tie_breaker = '%010d|%010d' % (sequence, line_id)
+            line.picker_location_sort_key = '%s|%s|%s' % (
+                status, (line.location_id.name or '').casefold(), tie_breaker,
+            )
+            line.picker_product_sort_key = '%s|%s|%s' % (
+                status, (line.product_id.display_name or '').casefold(), tie_breaker,
+            )
+            line.picker_default_sort_key = '%s|%s' % (status, tie_breaker)
 
     def action_open_pick_detail(self):
         self.ensure_one()

@@ -14,6 +14,12 @@ class WMSStockPackageLevel(models.Model):
             ('box', 'Box'),
             ('palet', 'Palet'),
         ], string='Package Category', related='package_id.package_cat')
+    batch_adt_type = fields.Char(
+        related='picking_id.adt_type', string='Tipe Transaksi', readonly=True,
+    )
+    batch_origin = fields.Char(
+        related='picking_id.origin', string='No. Dokumen', readonly=True,
+    )
 
     def action_mark_finished(self):
         for line in self.move_line_ids:

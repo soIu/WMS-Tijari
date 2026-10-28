@@ -32,6 +32,7 @@ Features:
     ],
     "assets": {
         "web.assets_frontend": [
+            "tijari_auth_oauth/static/src/scss/google_oauth_logo.scss",
             "tijari_auth_oauth/static/src/js/password_visibility_toggle.js",
         ],
     },

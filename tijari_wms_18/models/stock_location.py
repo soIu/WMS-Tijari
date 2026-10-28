@@ -31,13 +31,18 @@ class StockLocation(models.Model):
         'complete_name',
         'warehouse_id',
         'warehouse_id.code',
-    ) 
+    )
+    @api.depends_context('show_location_short_name')
     def _compute_display_name(self):
         if not self.env.context.get('show_location_short_name'):
             return super()._compute_display_name()
 
         for location in self:
-            location.display_name = location.warehouse_id.code + '/' + location.name if location.warehouse_id else '' + location.complete_name
+            location.display_name = (
+                f"{location.warehouse_id.code}/{location.name}"
+                if location.warehouse_id
+                else location.complete_name
+            )
 
     @api.model
     @api.readonly

@@ -1,7 +1,7 @@
 import json
 import logging
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -233,3 +233,44 @@ class AcumaticaWebhookLog(models.Model):
                 raise
 
         return True
+
+    @api.model
+    def cron_process_pending_webhook_logs(self, limit=100):
+        """Process pending webhook logs in small, isolated batches."""
+        self.env.cr.execute("""
+            SELECT id
+              FROM acumatica_webhook_log
+             WHERE state = 'pending'
+             ORDER BY create_date, id
+             LIMIT %s
+             FOR UPDATE SKIP LOCKED
+        """, [limit])
+        records = self.sudo().browse([row[0] for row in self.env.cr.fetchall()])
+        error_count = 0
+
+        for record in records:
+            try:
+                with self.env.cr.savepoint():
+                    record.action_process_to_staging()
+            except Exception as exc:
+                error_count += 1
+                record.invalidate_recordset()
+                _logger.exception('Scheduled processing failed for Acumatica webhook log %s', record.id)
+                record.sudo().write({
+                    'state': 'error',
+                    'error_count': record.error_count + 1,
+                    'result_message': 'Hasil webhook %s: GAGAL\nPesan error: %s' % (
+                        record.webhook_name,
+                        str(exc),
+                    ),
+                    'processed_date': fields.Datetime.now(),
+                })
+
+        return {
+            'webhook_logs': {
+                'success': not error_count,
+                'data_retrieved': len(records),
+                'records_errors': error_count,
+                'message': '%s webhook diproses; %s gagal.' % (len(records), error_count),
+            },
+        }
